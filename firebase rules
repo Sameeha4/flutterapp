@@ -56,3 +56,7 @@ service cloud.firestore {
     }
   }
 }
+friend_requests	
+toUserId
+status
+timestamp
