@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------
+    // USERS COLLECTION
+    // -----------------------------
+    match /users/{userId} {
+
+      // Any logged-in user can read users collection (for search, chat list)
+      allow read: if request.auth != null;
+      // Optional: allow create if user signs up
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Only the same user can write/update their own document
+      allow write: if request.auth != null
+                   && request.auth.uid == userId;
+    }
+    // -----------------------------
+    // FRIEND REQUESTS COLLECTION
+    // -----------------------------
+    match /friend_requests/{requestId} {
+      allow read: if request.auth != null 
+                  && (request.auth.uid == resource.data.fromUserId 
+                      || request.auth.uid == resource.data.toUserId);
+
+      // Allow creating a friend request if authenticated
+      allow create: if request.auth != null 
+                    && request.auth.uid == request.resource.data.fromUserId;
+
+      // Allow updating the request (accept/reject) if you are the receiver
+      allow update: if request.auth != null 
+                    && request.auth.uid == resource.data.toUserId
+                    && (request.resource.data.status == 'accepted' 
+                        || request.resource.data.status == 'rejected');
+    }
+
+    // -----------------------------
+    // CHATS COLLECTION
+    // -----------------------------
+   match /chats/{chatId} {
+  allow read: if request.auth.uid in resource.data.users;
+  allow create: if request.auth != null && request.resource.data.users is list;
+  allow update: if request.auth.uid in resource.data.users;
+
+
+      // -----------------------------
+      // MESSAGES SUBCOLLECTION
+      // -----------------------------
+      match /messages/{messageId} {
+
+        // Only users involved in the chat can read/write messages
+        allow read, write: if request.auth != null
+                           && request.auth.uid in
+                              get(/databases/$(database)/documents/chats/$(chatId)).data.users;
+      }
+    }
+  }
+}
